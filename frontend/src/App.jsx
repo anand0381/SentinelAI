@@ -1,29 +1,38 @@
 import { Route, Routes } from 'react-router-dom';
 
 import ProtectedRoute from './components/routes/ProtectedRoute.jsx';
+import PublicRoute from './components/routes/PublicRoute.jsx';
+import AuthLayout from './layouts/AuthLayout.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
-import HomePage from './pages/HomePage.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
+import IncidentsPage from './pages/IncidentsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
-import ThreatFormPage from './pages/ThreatFormPage.jsx';
-import ThreatListPage from './pages/ThreatListPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
+import ThreatsPage from './pages/ThreatsPage.jsx';
 
 function App() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="threats" element={<ThreatListPage />} />
-          <Route path="threats/new" element={<ThreatFormPage />} />
-          <Route path="threats/:id/edit" element={<ThreatFormPage />} />
+      <Route element={<PublicRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route index element={<LoginPage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
         </Route>
-        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="threats" element={<ThreatsPage />} />
+          <Route path="incidents" element={<IncidentsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Route>
     </Routes>
   );

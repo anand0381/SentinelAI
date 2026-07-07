@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 
-import { authService } from '../services/authService.js';
+import Alert from '../components/ui/Alert.jsx';
+import Button from '../components/ui/Button.jsx';
+import Card from '../components/ui/Card.jsx';
+import Input from '../components/ui/Input.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -28,19 +33,21 @@ function RegisterPage() {
     setLoading(true);
 
     try {
-      await authService.register(form);
-      navigate('/login', { replace: true });
+      await register(form);
+      navigate('/login', {
+        replace: true,
+        state: { message: 'Account created. You can sign in now.' },
+      });
     } catch (requestError) {
-      const detail = requestError.response?.data?.detail;
-      setError(Array.isArray(detail) ? detail[0]?.msg : detail || 'Unable to register.');
+      setError(requestError.message || 'Unable to register.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="mx-auto max-w-md">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6">
+    <section>
+      <Card className="p-6">
         <div className="mb-6 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-md bg-teal-500/15 text-teal-300">
             <UserPlus size={22} aria-hidden="true" />
@@ -51,49 +58,38 @@ function RegisterPage() {
           </div>
         </div>
 
-        {error ? (
-          <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
+        {error ? <Alert type="error">{error}</Alert> : null}
 
-        <form className="space-y-4" onSubmit={submit}>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-200">Full name</span>
-            <input
-              className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-teal-400"
-              name="full_name"
-              value={form.full_name}
-              onChange={updateField}
-              minLength={2}
-              required
-            />
-          </label>
+        <form className="mt-4 space-y-4" onSubmit={submit}>
+          <Input
+            label="Full name"
+            minLength={2}
+            name="full_name"
+            onChange={updateField}
+            required
+            value={form.full_name}
+          />
 
-          <label className="block">
-            <span className="text-sm font-medium text-slate-200">Email</span>
-            <input
-              className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-teal-400"
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={updateField}
-              required
-            />
-          </label>
+          <Input
+            autoComplete="email"
+            label="Email"
+            name="email"
+            onChange={updateField}
+            required
+            type="email"
+            value={form.email}
+          />
 
-          <label className="block">
-            <span className="text-sm font-medium text-slate-200">Password</span>
-            <input
-              className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-teal-400"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={updateField}
-              minLength={8}
-              required
-            />
-          </label>
+          <Input
+            autoComplete="new-password"
+            label="Password"
+            minLength={8}
+            name="password"
+            onChange={updateField}
+            required
+            type="password"
+            value={form.password}
+          />
 
           <label className="block">
             <span className="text-sm font-medium text-slate-200">Role</span>
@@ -108,13 +104,9 @@ function RegisterPage() {
             </select>
           </label>
 
-          <button
-            className="inline-flex w-full items-center justify-center rounded-md bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-70"
-            type="submit"
-            disabled={loading}
-          >
+          <Button className="w-full" disabled={loading} type="submit">
             {loading ? 'Creating account...' : 'Create account'}
-          </button>
+          </Button>
         </form>
 
         <p className="mt-4 text-sm text-slate-400">
@@ -123,7 +115,7 @@ function RegisterPage() {
             Sign in
           </Link>
         </p>
-      </div>
+      </Card>
     </section>
   );
 }

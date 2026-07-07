@@ -7,9 +7,11 @@ export const authService = {
   },
 
   async login(payload) {
-    const formData = new URLSearchParams();
-    formData.append('username', payload.email);
-    formData.append('password', payload.password);
+    const formData = new URLSearchParams({
+      grant_type: 'password',
+      username: payload.email.trim(),
+      password: payload.password,
+    });
 
     const response = await apiClient.post('/auth/login', formData, {
       headers: {
