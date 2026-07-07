@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from sqlalchemy import inspect, text
+
 from app.config.settings import get_settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
@@ -16,9 +18,6 @@ from app.utils.security import hash_password
 
 logger = get_logger(__name__)
 
-DEFAULT_ADMIN_EMAIL = "admin@sentinelai.local"
-DEFAULT_ADMIN_PASSWORD = "Admin@123"
-
 
 def initialize_database() -> None:
     settings = get_settings()
@@ -28,32 +27,80 @@ def initialize_database() -> None:
         database_path.parent.mkdir(parents=True, exist_ok=True)
 
     Base.metadata.create_all(bind=engine)
+    ensure_threat_ai_columns()
     admin_id = create_default_admin()
     create_sample_threats(admin_id)
     logger.info("Database initialized")
 
 
+def ensure_threat_ai_columns() -> None:
+    settings = get_settings()
+
+    if not settings.database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if "threats" not in table_names:
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("threats")}
+    column_definitions = {
+        "cve_id": "VARCHAR(32)",
+        "cvss_score": "FLOAT",
+        "published_date": "DATETIME",
+        "modified_date": "DATETIME",
+        "vendor_product": "VARCHAR(240)",
+        "source_feed": "VARCHAR(80)",
+        "reference_url": "VARCHAR(1000)",
+        "tags": "JSON",
+        "risk_score": "FLOAT",
+        "ai_summary": "TEXT",
+        "attack_vector": "VARCHAR(300)",
+        "business_impact": "TEXT",
+        "mitre_attack": "JSON",
+        "recommendations": "JSON",
+        "last_analyzed": "DATETIME",
+    }
+
+    missing_columns = [
+        (name, definition)
+        for name, definition in column_definitions.items()
+        if name not in existing_columns
+    ]
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for name, definition in missing_columns:
+            connection.execute(text(f"ALTER TABLE threats ADD COLUMN {name} {definition}"))
+
+    logger.info("Threat AI columns added to SQLite database")
+
+
 def create_default_admin() -> int:
+    settings = get_settings()
     db = SessionLocal()
 
     try:
         user_repository = UserRepository(db)
-        existing_admin = user_repository.get_user_by_email(DEFAULT_ADMIN_EMAIL)
+        existing_admin = user_repository.get_user_by_email(settings.default_admin_email)
 
         if existing_admin:
             return existing_admin.id
 
         admin_data = UserCreate(
             full_name="SentinelAI Administrator",
-            email=DEFAULT_ADMIN_EMAIL,
-            password=DEFAULT_ADMIN_PASSWORD,
+            email=settings.default_admin_email,
+            password=settings.default_admin_password,
             role=UserRole.ADMIN,
         )
         user_repository.create_user(
             user_data=admin_data,
-            password_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
+            password_hash=hash_password(settings.default_admin_password),
         )
-        admin = user_repository.get_user_by_email(DEFAULT_ADMIN_EMAIL)
+        admin = user_repository.get_user_by_email(settings.default_admin_email)
         logger.info("Default administrator account created")
         return admin.id if admin else 1
     finally:

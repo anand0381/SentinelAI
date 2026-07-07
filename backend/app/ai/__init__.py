@@ -1,1 +1,1 @@
-"""AI and machine learning package."""
+"""AI intelligence services for SentinelAI."""

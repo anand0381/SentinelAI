@@ -52,7 +52,31 @@ export const threatService = {
     return response.data;
   },
 
+  async analyze(id) {
+    const response = await apiClient.post(`/threats/${id}/analyze`);
+    return response.data;
+  },
+
   async remove(id) {
     await apiClient.delete(`/threats/${id}`);
+  },
+
+  async latestThreatIntelligence({ page = 1, pageSize = 10 } = {}) {
+    const response = await apiClient.get('/threat-intelligence/latest', {
+      params: { page, page_size: pageSize },
+    });
+    return response.data;
+  },
+
+  async syncThreatIntelligence({ limit } = {}) {
+    const response = await apiClient.post('/threat-intelligence/sync', null, {
+      params: { limit: limit || undefined },
+    });
+    return response.data;
+  },
+
+  async threatIntelligenceStatus() {
+    const response = await apiClient.get('/threat-intelligence/status');
+    return response.data;
   },
 };

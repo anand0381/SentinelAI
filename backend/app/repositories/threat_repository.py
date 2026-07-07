@@ -19,6 +19,9 @@ class ThreatRepository:
     def get_threat_by_id(self, threat_id: int) -> Threat | None:
         return self.db.get(Threat, threat_id)
 
+    def get_threat_by_cve_id(self, cve_id: str) -> Threat | None:
+        return self.db.scalar(select(Threat).where(Threat.cve_id == cve_id))
+
     def get_all_threats(self) -> Select[tuple[Threat]]:
         return select(Threat).order_by(Threat.detected_at.desc(), Threat.id.desc())
 
@@ -36,6 +39,32 @@ class ThreatRepository:
     def delete_threat(self, threat: Threat) -> None:
         self.db.delete(threat)
         self.db.commit()
+
+    def save_analysis(self, threat: Threat) -> Threat:
+        self.db.add(threat)
+        self.db.commit()
+        self.db.refresh(threat)
+        return threat
+
+    def create_imported_threat(self, payload: dict[str, object], created_by: int) -> Threat:
+        threat = Threat(**payload, created_by=created_by)
+        self.db.add(threat)
+        self.db.commit()
+        self.db.refresh(threat)
+        return threat
+
+    def update_imported_threat(
+        self,
+        threat: Threat,
+        payload: dict[str, object],
+    ) -> Threat:
+        for field, value in payload.items():
+            setattr(threat, field, value)
+
+        self.db.add(threat)
+        self.db.commit()
+        self.db.refresh(threat)
+        return threat
 
     def search_threats(self, query: str) -> Select[tuple[Threat]]:
         search_term = f"%{query.strip()}%"

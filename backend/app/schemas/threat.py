@@ -48,8 +48,23 @@ class ThreatResponse(BaseModel):
     category: ThreatCategory
     severity: ThreatSeverity
     source: str
+    cve_id: str | None = None
+    cvss_score: float | None = None
+    published_date: datetime | None = None
+    modified_date: datetime | None = None
+    vendor_product: str | None = None
+    source_feed: str | None = None
+    reference_url: str | None = None
+    tags: list[str] | None = None
     status: ThreatStatus
     confidence_score: float
+    risk_score: float | None = None
+    ai_summary: str | None = None
+    attack_vector: str | None = None
+    business_impact: str | None = None
+    mitre_attack: list[str] | None = None
+    recommendations: list[str] | None = None
+    last_analyzed: datetime | None = None
     detected_at: datetime
     created_by: int
     created_at: datetime
@@ -71,3 +86,15 @@ class ThreatListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class ThreatAnalysisResponse(BaseModel):
+    threat_id: int
+    ai_summary: str
+    attack_vector: str
+    business_impact: str
+    mitre_attack: list[str]
+    recommendations: list[str]
+    confidence_score: float
+    risk_score: float
+    last_analyzed: datetime

@@ -4,6 +4,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.ai.gemini_model_manager import GeminiModelManager
 from app.api.v1.router import api_router
 from app.config.settings import get_settings
 from app.db.init_db import initialize_database
@@ -17,6 +18,7 @@ logger = get_logger(__name__)
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     initialize_database()
+    GeminiModelManager.initialize_cache()
     logger.info("SentinelAI backend started")
     yield
     logger.info("SentinelAI backend stopped")

@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import Select
 from sqlalchemy.orm import Session
 
+from app.ai.ai_service import AIService
 from app.models.threat import Threat
 from app.models.user import User, UserRole
 from app.repositories.threat_repository import ThreatRepository
@@ -84,6 +85,13 @@ class ThreatService:
         threat = self.get_threat(threat_id)
         self._ensure_can_modify(threat, current_user)
         self.threat_repository.delete_threat(threat)
+
+    def analyze_threat(self, threat_id: int) -> Threat:
+        threat = self.get_threat(threat_id)
+        ai_service = AIService()
+        analysis = ai_service.analyze_threat(threat)
+        ai_service.apply_analysis(threat, analysis)
+        return self.threat_repository.save_analysis(threat)
 
     def _paginate(
         self,

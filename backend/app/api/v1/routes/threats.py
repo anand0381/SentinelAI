@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.threat import (
     ThreatCreate,
     ThreatFilter,
+    ThreatAnalysisResponse,
     ThreatListResponse,
     ThreatResponse,
     ThreatUpdate,
@@ -97,6 +98,30 @@ def get_threat(
     _: Annotated[User, Depends(get_current_user)],
 ) -> ThreatResponse:
     return ThreatService(db).get_threat(threat_id)
+
+
+@router.post(
+    "/{threat_id}/analyze",
+    response_model=ThreatAnalysisResponse,
+    summary="Analyze a threat with AI",
+)
+def analyze_threat(
+    threat_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> ThreatAnalysisResponse:
+    threat = ThreatService(db).analyze_threat(threat_id)
+    return ThreatAnalysisResponse(
+        threat_id=threat.id,
+        ai_summary=threat.ai_summary or "",
+        attack_vector=threat.attack_vector or "",
+        business_impact=threat.business_impact or "",
+        mitre_attack=threat.mitre_attack or [],
+        recommendations=threat.recommendations or [],
+        confidence_score=threat.confidence_score,
+        risk_score=threat.risk_score or 0,
+        last_analyzed=threat.last_analyzed,
+    )
 
 
 @router.put(

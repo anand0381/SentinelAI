@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Edit3, Plus, Search, Trash2 } from 'lucide-react';
+import { BrainCircuit, Edit3, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 import Alert from '../components/ui/Alert.jsx';
 import Badge from '../components/ui/Badge.jsx';
@@ -100,14 +100,37 @@ function getThreatForm(threat) {
   };
 }
 
+function getAnalyzeErrorMessage(error) {
+  const detail = error.response?.data?.detail;
+
+  if (typeof detail === 'string') {
+    if (detail.includes('UNAVAILABLE') || detail.includes('overloaded')) {
+      return 'Gemini is temporarily overloaded. Please try Analyze with AI again in a moment.';
+    }
+
+    if (detail.includes('rate limit') || detail.includes('429')) {
+      return 'Gemini rate limit was reached. Please wait before running another analysis.';
+    }
+
+    return detail;
+  }
+
+  return 'Unable to analyze threat with AI.';
+}
+
 function ThreatsPage() {
   const { showToast } = useToast();
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [analyzingId, setAnalyzingId] = useState(null);
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({ category: '', severity: '', source: '', status: '' });
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [intelStatus, setIntelStatus] = useState(null);
+  const [syncResult, setSyncResult] = useState(null);
+  const [syncingIntel, setSyncingIntel] = useState(false);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
@@ -151,9 +174,25 @@ function ThreatsPage() {
     }
   }, [filters, page, query]);
 
+  const loadIntelStatus = useCallback(async () => {
+    try {
+      const status = await threatService.threatIntelligenceStatus();
+      setIntelStatus(status);
+    } catch (err) {
+      showToast({
+        message: err.response?.data?.detail || 'Unable to load threat intelligence status.',
+        type: 'error',
+      });
+    }
+  }, [showToast]);
+
   useEffect(() => {
     loadThreats(page);
   }, [loadThreats, page]);
+
+  useEffect(() => {
+    loadIntelStatus();
+  }, [loadIntelStatus]);
 
   function openCreateModal() {
     setEditingThreat(null);
@@ -264,6 +303,46 @@ function ThreatsPage() {
     }
   }
 
+  async function handleAnalyze(threat) {
+    setAnalyzingId(threat.id);
+    setAiAnalysis(null);
+    try {
+      const analysis = await threatService.analyze(threat.id);
+      setAiAnalysis({ ...analysis, title: threat.title });
+      showToast({ message: 'AI analysis completed successfully.', type: 'success' });
+      await loadThreats(page);
+    } catch (err) {
+      showToast({
+        message: getAnalyzeErrorMessage(err),
+        type: 'error',
+      });
+    } finally {
+      setAnalyzingId(null);
+    }
+  }
+
+  async function handleSyncThreatIntelligence() {
+    setSyncingIntel(true);
+    setSyncResult(null);
+    try {
+      const result = await threatService.syncThreatIntelligence();
+      setSyncResult(result);
+      showToast({
+        message: `Threat feeds synced: ${result.imported} imported, ${result.updated} updated.`,
+        type: 'success',
+      });
+      await Promise.all([loadThreats(1), loadIntelStatus()]);
+      setPage(1);
+    } catch (err) {
+      showToast({
+        message: err.response?.data?.detail || 'Unable to sync threat intelligence feeds.',
+        type: 'error',
+      });
+    } finally {
+      setSyncingIntel(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -278,6 +357,29 @@ function ThreatsPage() {
           Create Threat
         </Button>
       </div>
+
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-cyan-200">Live Threat Intelligence</p>
+            <div className="mt-2 grid gap-2 text-sm text-slate-400 md:grid-cols-3">
+              <span>Status: {intelStatus?.last_status || 'NOT_STARTED'}</span>
+              <span>Imported: {intelStatus?.imported_total ?? 0}</span>
+              <span>Last sync: {formatDateTime(intelStatus?.last_sync_at)}</span>
+            </div>
+            {syncResult ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Fetched {syncResult.fetched}, imported {syncResult.imported}, updated {syncResult.updated},
+                duplicates {syncResult.skipped_duplicates}, analyzed {syncResult.analyzed}, failed {syncResult.failed}.
+              </p>
+            ) : null}
+          </div>
+          <Button disabled={syncingIntel} onClick={handleSyncThreatIntelligence} variant="secondary">
+            <RefreshCw className={syncingIntel ? 'animate-spin' : ''} size={16} aria-hidden="true" />
+            {syncingIntel ? 'Syncing Feeds' : 'Sync Threat Feed'}
+          </Button>
+        </div>
+      </Card>
 
       <Card className="p-4">
         <form className="grid gap-3 lg:grid-cols-[1fr_repeat(4,minmax(0,11rem))_auto]" onSubmit={handleSearch}>
@@ -363,6 +465,7 @@ function ThreatsPage() {
                 <tr>
                   <th className="px-4 py-3">Threat</th>
                   <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Severity</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Confidence</th>
@@ -379,6 +482,11 @@ function ThreatsPage() {
                     </td>
                     <td className="px-4 py-4">{threat.category}</td>
                     <td className="px-4 py-4">
+                      <Badge variant={threat.source_feed ? 'cyan' : 'slate'}>
+                        {threat.source_feed || 'Manual'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-4">
                       <Badge variant={badgeVariantBySeverity[threat.severity] || 'cyan'}>
                         {threat.severity}
                       </Badge>
@@ -392,6 +500,18 @@ function ThreatsPage() {
                       <div className="flex justify-end gap-2">
                         <Button className="px-3" onClick={() => openEditModal(threat)} variant="secondary">
                           <Edit3 size={15} aria-hidden="true" />
+                        </Button>
+                        <Button
+                          className="px-3"
+                          disabled={analyzingId === threat.id}
+                          onClick={() => handleAnalyze(threat)}
+                          variant="secondary"
+                        >
+                          {analyzingId === threat.id ? (
+                            <Spinner label="" />
+                          ) : (
+                            <BrainCircuit size={15} aria-hidden="true" />
+                          )}
                         </Button>
                         <Button className="px-3" onClick={() => setConfirmTarget(threat)} variant="danger">
                           <Trash2 size={15} aria-hidden="true" />
@@ -514,6 +634,71 @@ function ThreatsPage() {
         open={Boolean(confirmTarget)}
         title="Delete threat"
       />
+
+      <Modal open={Boolean(aiAnalysis)} title="AI Threat Analysis">
+        {aiAnalysis ? (
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-cyan-300">Analyzed Threat</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">{aiAnalysis.title}</h2>
+              <p className="mt-2 text-sm text-slate-300">{aiAnalysis.ai_summary}</p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-md border border-slate-800 bg-slate-950 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Risk Score</p>
+                <p className="mt-2 text-2xl font-semibold text-red-200">{aiAnalysis.risk_score}%</p>
+              </div>
+              <div className="rounded-md border border-slate-800 bg-slate-950 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">AI Confidence</p>
+                <p className="mt-2 text-2xl font-semibold text-cyan-200">
+                  {aiAnalysis.confidence_score}%
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-sm text-slate-300">
+              <div>
+                <p className="font-semibold text-white">Attack Vector</p>
+                <p className="mt-1">{aiAnalysis.attack_vector}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-white">Business Impact</p>
+                <p className="mt-1">{aiAnalysis.business_impact}</p>
+              </div>
+              <div>
+                <p className="font-semibold text-white">MITRE ATT&CK Mapping</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {aiAnalysis.mitre_attack.map((item) => (
+                    <Badge key={item} variant="cyan">
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-white">Recommendations</p>
+                <ul className="mt-2 space-y-2">
+                  {aiAnalysis.recommendations.map((item) => (
+                    <li className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2" key={item}>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-xs text-slate-500">
+                Last analyzed: {formatDateTime(aiAnalysis.last_analyzed)}
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={() => setAiAnalysis(null)} variant="secondary">
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </section>
   );
 }
