@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import Input from '../components/ui/Input.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
+import { useNotifications } from '../hooks/useNotifications.js';
 import { useToast } from '../hooks/useToast.js';
 import {
   THREAT_CATEGORIES,
@@ -43,6 +44,22 @@ const badgeVariantBySeverity = {
   LOW: 'green',
   MEDIUM: 'cyan',
 };
+
+function getAiStatus(threat, analyzingId) {
+  if (analyzingId === threat.id) {
+    return { label: 'AI Pending', variant: 'amber' };
+  }
+
+  if (threat.last_analyzed && threat.ai_summary) {
+    return { label: 'AI Completed', variant: 'green' };
+  }
+
+  if (threat.source === 'Endpoint Agent') {
+    return { label: 'AI Pending', variant: 'amber' };
+  }
+
+  return { label: 'AI Pending', variant: 'slate' };
+}
 
 function SelectField({ children, label, ...props }) {
   return (
@@ -119,6 +136,7 @@ function getAnalyzeErrorMessage(error) {
 }
 
 function ThreatsPage() {
+  const { notifyAiCompleted, notifyThreatIntelligenceSync, refreshVersion } = useNotifications();
   const { showToast } = useToast();
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [analyzingId, setAnalyzingId] = useState(null);
@@ -188,7 +206,7 @@ function ThreatsPage() {
 
   useEffect(() => {
     loadThreats(page);
-  }, [loadThreats, page]);
+  }, [loadThreats, page, refreshVersion]);
 
   useEffect(() => {
     loadIntelStatus();
@@ -309,6 +327,7 @@ function ThreatsPage() {
     try {
       const analysis = await threatService.analyze(threat.id);
       setAiAnalysis({ ...analysis, title: threat.title });
+      notifyAiCompleted(threat.title, threat.id);
       showToast({ message: 'AI analysis completed successfully.', type: 'success' });
       await loadThreats(page);
     } catch (err) {
@@ -327,6 +346,7 @@ function ThreatsPage() {
     try {
       const result = await threatService.syncThreatIntelligence();
       setSyncResult(result);
+      notifyThreatIntelligenceSync(result);
       showToast({
         message: `Threat feeds synced: ${result.imported} imported, ${result.updated} updated.`,
         type: 'success',
@@ -468,6 +488,7 @@ function ThreatsPage() {
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Severity</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">AI</th>
                   <th className="px-4 py-3">Confidence</th>
                   <th className="px-4 py-3">Detected</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -475,7 +496,12 @@ function ThreatsPage() {
               </thead>
               <tbody className="divide-y divide-slate-800 text-slate-200">
                 {threats.map((threat) => (
-                  <tr className="hover:bg-slate-800/40" key={threat.id}>
+                  <tr
+                    className={`hover:bg-slate-800/40 ${
+                      threat.severity === 'CRITICAL' ? 'bg-red-500/5' : ''
+                    }`}
+                    key={threat.id}
+                  >
                     <td className="max-w-xs px-4 py-4">
                       <p className="font-medium text-white">{threat.title}</p>
                       <p className="mt-1 truncate text-xs text-slate-400">{threat.source}</p>
@@ -493,6 +519,11 @@ function ThreatsPage() {
                     </td>
                     <td className="px-4 py-4">
                       <Badge variant={threat.status === 'CLOSED' ? 'green' : 'cyan'}>{threat.status}</Badge>
+                    </td>
+                    <td className="px-4 py-4">
+                      <Badge variant={getAiStatus(threat, analyzingId).variant}>
+                        {getAiStatus(threat, analyzingId).label}
+                      </Badge>
                     </td>
                     <td className="px-4 py-4">{threat.confidence_score}%</td>
                     <td className="px-4 py-4">{formatDateTime(threat.detected_at)}</td>

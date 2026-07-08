@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArcElement,
   BarElement,
@@ -17,6 +17,7 @@ import Alert from '../components/ui/Alert.jsx';
 import Card from '../components/ui/Card.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
+import { useNotifications } from '../hooks/useNotifications.js';
 import { dashboardService } from '../services/dashboardService.js';
 
 ChartJS.register(
@@ -111,20 +112,23 @@ function ChartPanel({ children, title }) {
 }
 
 function DashboardPage() {
+  const { refreshVersion } = useNotifications();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     let ignore = false;
 
     async function loadDashboard() {
-      setLoading(true);
+      setLoading(!loadedRef.current);
       setError('');
       try {
         const response = await dashboardService.overview();
         if (!ignore) {
           setData(response);
+          loadedRef.current = true;
         }
       } catch (err) {
         if (!ignore) {
@@ -142,7 +146,7 @@ function DashboardPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [refreshVersion]);
 
   const kpis = useMemo(
     () => [

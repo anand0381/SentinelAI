@@ -10,6 +10,7 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import Input from '../components/ui/Input.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
+import { useNotifications } from '../hooks/useNotifications.js';
 import { useToast } from '../hooks/useToast.js';
 import {
   INCIDENT_PRIORITIES,
@@ -89,6 +90,7 @@ function getIncidentForm(incident) {
 }
 
 function IncidentsPage() {
+  const { refreshVersion } = useNotifications();
   const { showToast } = useToast();
   const [confirmTarget, setConfirmTarget] = useState(null);
   const [error, setError] = useState('');
@@ -124,7 +126,7 @@ function IncidentsPage() {
 
   useEffect(() => {
     loadIncidents(page);
-  }, [loadIncidents, page]);
+  }, [loadIncidents, page, refreshVersion]);
 
   const visibleIncidents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

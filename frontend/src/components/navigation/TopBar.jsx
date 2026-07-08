@@ -1,12 +1,16 @@
-import { LogOut, Menu, UserCircle } from 'lucide-react';
+import { Bell, LogOut, Menu, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 
 import Button from '../ui/Button.jsx';
 import Badge from '../ui/Badge.jsx';
+import NotificationCenter from '../notifications/NotificationCenter.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useNotifications } from '../../hooks/useNotifications.js';
 
 function TopBar({ onMenuClick, title }) {
   const { logout, user } = useAuth();
+  const { unreadCount } = useNotifications();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,7 +30,27 @@ function TopBar({ onMenuClick, title }) {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <button
+              aria-label="Open notifications"
+              className="relative flex h-10 w-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300 hover:border-cyan-500/60 hover:text-white"
+              onClick={() => setNotificationsOpen((current) => !current)}
+              type="button"
+            >
+              <Bell size={19} aria-hidden="true" />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              ) : null}
+            </button>
+            {notificationsOpen ? (
+              <NotificationCenter onClose={() => setNotificationsOpen(false)} />
+            ) : null}
+          </div>
+
+          <div className="relative">
           <button
             className="flex items-center gap-3 rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-cyan-500/60"
             type="button"
@@ -56,6 +80,7 @@ function TopBar({ onMenuClick, title }) {
               </Button>
             </div>
           ) : null}
+          </div>
         </div>
       </div>
     </header>
