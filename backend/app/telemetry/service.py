@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+
+from app.detection.engine import DetectionEngine
 from app.schemas.telemetry import EndpointTelemetryRequest, TelemetryAcceptedResponse
 from app.utils.logging import get_logger
 
@@ -5,6 +8,9 @@ logger = get_logger(__name__)
 
 
 class TelemetryService:
+    def __init__(self, db: Session) -> None:
+        self.detection_engine = DetectionEngine(db)
+
     def accept(self, telemetry: EndpointTelemetryRequest) -> TelemetryAcceptedResponse:
         logger.info(
             "Endpoint telemetry received | agent_id=%s hostname=%s username=%s "
@@ -18,5 +24,5 @@ class TelemetryService:
             len(telemetry.active_tcp_connections),
             telemetry.timestamp.isoformat(),
         )
+        self.detection_engine.process(telemetry)
         return TelemetryAcceptedResponse()
-

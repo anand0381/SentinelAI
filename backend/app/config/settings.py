@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     default_admin_password: str = "CHANGE_ME_ADMIN_PASSWORD"
     threat_intel_sync_limit: int = 20
     threat_intel_timeout_seconds: int = 30
+    detection_cpu_threshold: float = 90.0
+    detection_memory_threshold: float = 90.0
+    detection_tcp_connection_threshold: int = 100
+    detection_duplicate_window_minutes: int = 10
+    detection_suspicious_processes: str = (
+        "powershell.exe,cmd.exe,wscript.exe,cscript.exe,mshta.exe,"
+        "rundll32.exe,regsvr32.exe"
+    )
     nvd_api_url: str = "https://services.nvd.nist.gov/rest/json/cves/2.0"
     cisa_kev_url: str = (
         "https://www.cisa.gov/sites/default/files/feeds/"
