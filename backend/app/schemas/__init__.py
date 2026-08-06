@@ -1,8 +1,13 @@
 from app.schemas.dashboard import ChartData, ChartDataset, DashboardSummary
+from app.schemas.endpoint_activity import (
+    EndpointActivityListResponse,
+    EndpointActivityResponse,
+)
 from app.schemas.incident import (
     IncidentCreate,
     IncidentListResponse,
     IncidentResponse,
+    IncidentTimelineResponse,
     IncidentUpdate,
 )
 from app.schemas.threat import (
@@ -30,9 +35,12 @@ __all__ = [
     "ChartData",
     "ChartDataset",
     "DashboardSummary",
+    "EndpointActivityListResponse",
+    "EndpointActivityResponse",
     "IncidentCreate",
     "IncidentListResponse",
     "IncidentResponse",
+    "IncidentTimelineResponse",
     "IncidentUpdate",
     "EndpointTelemetryRequest",
     "NetworkConnectionTelemetryRequest",

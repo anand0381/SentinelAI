@@ -7,6 +7,7 @@ from app.config.settings import get_settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.incident import Incident
+from app.models.endpoint_activity import EndpointActivity
 from app.models.threat import Threat, ThreatCategory, ThreatSeverity, ThreatStatus
 from app.models.user import UserRole
 from app.repositories.threat_repository import ThreatRepository
@@ -28,6 +29,7 @@ def initialize_database() -> None:
 
     Base.metadata.create_all(bind=engine)
     ensure_threat_ai_columns()
+    ensure_incident_correlation_columns()
     admin_id = create_default_admin()
     create_sample_threats(admin_id)
     logger.info("Database initialized")
@@ -77,6 +79,44 @@ def ensure_threat_ai_columns() -> None:
             connection.execute(text(f"ALTER TABLE threats ADD COLUMN {name} {definition}"))
 
     logger.info("Threat AI columns added to SQLite database")
+
+
+def ensure_incident_correlation_columns() -> None:
+    settings = get_settings()
+
+    if not settings.database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if "incidents" not in table_names:
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("incidents")}
+    column_definitions = {
+        "related_threat_ids": "JSON",
+        "affected_endpoint": "VARCHAR(255)",
+        "affected_username": "VARCHAR(255)",
+        "correlation_key": "VARCHAR(500)",
+        "first_detected": "DATETIME",
+        "last_detected": "DATETIME",
+        "timeline": "JSON",
+    }
+
+    missing_columns = [
+        (name, definition)
+        for name, definition in column_definitions.items()
+        if name not in existing_columns
+    ]
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for name, definition in missing_columns:
+            connection.execute(text(f"ALTER TABLE incidents ADD COLUMN {name} {definition}"))
+
+    logger.info("Incident correlation columns added to SQLite database")
 
 
 def create_default_admin() -> int:

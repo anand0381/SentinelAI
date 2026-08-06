@@ -45,6 +45,15 @@ class IncidentResponse(BaseModel):
     priority: IncidentPriority
     assigned_to: str | None
     related_threat_id: int | None
+    related_threat_ids: list[int] | None = None
+    affected_endpoint: str | None = None
+    affected_username: str | None = None
+    correlation_key: str | None = None
+    first_detected: datetime | None = None
+    last_detected: datetime | None = None
+    timeline: list[dict[str, str]] | None = None
+    related_threat_count: int = 0
+    ai_analysis_available: bool = False
     created_by: int
     created_at: datetime
     updated_at: datetime
@@ -58,3 +67,8 @@ class IncidentListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class IncidentTimelineResponse(BaseModel):
+    incident_id: int
+    timeline: list[dict[str, str]]

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.ai_service import AIService
 from app.config.settings import get_settings
+from app.correlation.service import IncidentCorrelationService
 from app.detection.evaluator import DetectionEvaluator
 from app.detection.models import DetectionResult
 from app.detection.rules import DetectionRules
@@ -30,6 +31,7 @@ class DetectionEngine:
         self.evaluator = DetectionEvaluator()
         self.threat_repository = ThreatRepository(db)
         self.user_repository = UserRepository(db)
+        self.correlation_service = IncidentCorrelationService(db)
 
     def process(self, telemetry: EndpointTelemetryRequest) -> DetectionResult:
         started = time.perf_counter()
@@ -55,7 +57,8 @@ class DetectionEngine:
             else:
                 threat = self._create_threat(telemetry, result)
                 logger.info("Threat created | threat_id=%s", threat.id)
-                self._analyze_new_threat(threat)
+                self.correlation_service.correlate_threat(threat, telemetry)
+                self._analyze_new_threat(threat, telemetry)
 
         logger.info(
             "Detection completed | hostname=%s duration_ms=%s",
@@ -133,13 +136,18 @@ class DetectionEngine:
         )
         return self.db.scalars(statement).first()
 
-    def _analyze_new_threat(self, threat: Threat) -> None:
+    def _analyze_new_threat(
+        self,
+        threat: Threat,
+        telemetry: EndpointTelemetryRequest,
+    ) -> None:
         logger.info("AI analysis started | threat_id=%s", threat.id)
         try:
             ai_service = AIService()
             analysis = ai_service.analyze_threat(threat)
             ai_service.apply_analysis(threat, analysis)
             self.threat_repository.save_analysis(threat)
+            self.correlation_service.record_ai_completed(threat, telemetry)
             logger.info("AI analysis completed | threat_id=%s", threat.id)
         except HTTPException:
             logger.exception("AI analysis failed | threat_id=%s", threat.id)
@@ -154,4 +162,3 @@ class DetectionEngine:
         if result.severity == ThreatSeverity.MEDIUM:
             return 70.0
         return 60.0
-

@@ -9,6 +9,7 @@ from app.schemas.incident import (
     IncidentCreate,
     IncidentListResponse,
     IncidentResponse,
+    IncidentTimelineResponse,
     IncidentUpdate,
 )
 from app.services.incident_service import IncidentService
@@ -56,6 +57,19 @@ def get_incident(
     _: Annotated[User, Depends(get_current_user)],
 ) -> IncidentResponse:
     return IncidentService(db).get_incident(incident_id)
+
+
+@router.get(
+    "/{incident_id}/timeline",
+    response_model=IncidentTimelineResponse,
+    summary="Get incident timeline",
+)
+def get_incident_timeline(
+    incident_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> IncidentTimelineResponse:
+    return IncidentService(db).get_timeline(incident_id)
 
 
 @router.put(

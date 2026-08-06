@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -45,6 +45,13 @@ class Incident(Base):
         nullable=True,
         index=True,
     )
+    related_threat_ids: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    affected_endpoint: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    affected_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    correlation_key: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
+    first_detected: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_detected: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    timeline: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
@@ -64,3 +71,13 @@ class Incident(Base):
 
     creator = relationship("User")
     related_threat = relationship("Threat")
+
+    @property
+    def related_threat_count(self) -> int:
+        return len(self.related_threat_ids or ([] if self.related_threat_id is None else [self.related_threat_id]))
+
+    @property
+    def ai_analysis_available(self) -> bool:
+        if self.timeline:
+            return any(item.get("event") == "AI analysis completed" for item in self.timeline)
+        return False

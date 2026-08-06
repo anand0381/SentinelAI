@@ -43,6 +43,46 @@ class DashboardRepository:
             or 0
         )
 
+    def count_active_incidents(self) -> int:
+        return (
+            self.db.scalar(
+                select(func.count()).where(
+                    Incident.status.in_(
+                        [IncidentStatus.OPEN, IncidentStatus.INVESTIGATING]
+                    )
+                )
+            )
+            or 0
+        )
+
+    def count_correlated_incidents(self) -> int:
+        return (
+            self.db.scalar(
+                select(func.count()).where(Incident.related_threat_ids.is_not(None))
+            )
+            or 0
+        )
+
+    def average_threats_per_incident(self) -> float:
+        incidents = self.db.scalars(
+            select(Incident).where(Incident.related_threat_ids.is_not(None))
+        ).all()
+        if not incidents:
+            return 0.0
+
+        total = sum(len(incident.related_threat_ids or []) for incident in incidents)
+        return round(total / len(incidents), 2)
+
+    def most_affected_endpoint(self) -> str | None:
+        row = self.db.execute(
+            select(Incident.affected_endpoint, func.count(Incident.id))
+            .where(Incident.affected_endpoint.is_not(None))
+            .group_by(Incident.affected_endpoint)
+            .order_by(func.count(Incident.id).desc())
+            .limit(1)
+        ).first()
+        return str(row[0]) if row else None
+
     def threat_counts_by_severity(self) -> list[tuple[str, int]]:
         return list(
             self.db.execute(

@@ -14,6 +14,14 @@ class DashboardService:
             "high_priority_incidents": (
                 self.dashboard_repository.count_high_priority_incidents()
             ),
+            "active_incidents": self.dashboard_repository.count_active_incidents(),
+            "correlated_incidents": (
+                self.dashboard_repository.count_correlated_incidents()
+            ),
+            "average_threats_per_incident": (
+                self.dashboard_repository.average_threats_per_incident()
+            ),
+            "most_affected_endpoint": self.dashboard_repository.most_affected_endpoint(),
         }
 
     def get_threat_severity(self) -> dict[str, list[object]]:

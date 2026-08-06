@@ -10,6 +10,7 @@ from app.repositories.threat_repository import ThreatRepository
 from app.schemas.incident import (
     IncidentCreate,
     IncidentListResponse,
+    IncidentTimelineResponse,
     IncidentUpdate,
 )
 
@@ -63,6 +64,11 @@ class IncidentService:
             page_size=page_size,
             pages=pages,
         )
+
+    def get_timeline(self, incident_id: int) -> IncidentTimelineResponse:
+        incident = self.get_incident(incident_id)
+        timeline = sorted(incident.timeline or [], key=lambda item: item.get("timestamp", ""))
+        return IncidentTimelineResponse(incident_id=incident.id, timeline=timeline)
 
     def update_incident(
         self,

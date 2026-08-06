@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     detection_memory_threshold: float = 90.0
     detection_tcp_connection_threshold: int = 100
     detection_duplicate_window_minutes: int = 10
+    incident_correlation_window_minutes: int = 30
     detection_suspicious_processes: str = (
         "powershell.exe,cmd.exe,wscript.exe,cscript.exe,mshta.exe,"
         "rundll32.exe,regsvr32.exe"

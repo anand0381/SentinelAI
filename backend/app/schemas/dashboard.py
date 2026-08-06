@@ -17,3 +17,7 @@ class DashboardSummary(BaseModel):
     critical_threats: int
     open_incidents: int
     high_priority_incidents: int
+    active_incidents: int = 0
+    correlated_incidents: int = 0
+    average_threats_per_incident: float = 0
+    most_affected_endpoint: str | None = None
